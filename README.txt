@@ -1,33 +1,41 @@
-DELÍCIA DIGITAL v3 - DEMO COMERCIAL
+DELÍCIA DIGITAL v5 — DEMO OPERACIONAL
 
 Arquivos:
-- index.html: sistema completo com cardápio público, carrinho, checkout, painel admin e pedidos.
-- manifest.webmanifest: configuração PWA.
-- sw.js: service worker para cache/offline básico.
+- index.html
+- manifest.webmanifest
+- sw.js
 
 Como testar:
-1. Mantenha os 3 arquivos na mesma pasta.
-2. Abra o index.html no navegador.
-3. Para testar melhor o PWA, rode em servidor local:
+1. Coloque os três arquivos na mesma pasta.
+2. Para testar PWA e service worker, rode um servidor local:
    python -m http.server 8000
-   Depois acesse: http://localhost:8000
+3. Acesse:
+   http://localhost:8000
+4. Painel admin:
+   http://localhost:8000/#admin
 
-Painel admin:
-- Acesse pelo link no rodapé "Acesso do estabelecimento" ou abra index.html#admin.
-- Senha da demo: admin123
+Senha do admin:
+admin123
 
-Novidades da v3:
-- Interface pública mais limpa.
-- Admin separado por rota/hash.
-- Header com capa, logo, status, tempo e pedido mínimo.
-- Promoções e destaques no lugar dos cards institucionais.
-- Produtos com tags, promoção, estoque, serve/unidade e sugestões.
-- Checkout em etapas.
-- Pedido salvo no painel antes do envio ao WhatsApp.
-- Status de pedidos em estilo operacional.
-- QR Code por mesa/comanda.
-- Configurações de negócio: segmento, cor, logo, capa, WhatsApp, Pix, taxas e pedido mínimo.
-- Modo mais adequado para restaurantes, lanchonetes, bares e distribuidoras.
+Novidades da v5:
+- Controle de estoque real no painel.
+- Produto sem estoque fica indisponível no cardápio.
+- Bloqueio de adição ao carrinho quando ultrapassa estoque.
+- Baixa de estoque quando o pedido é aceito/preparado/pronto/saiu/finalizado.
+- Devolução de estoque se pedido já baixado for cancelado.
+- Tela da cozinha para tablet/monitor.
+- Impressão de pedido e impressão dos pedidos abertos da cozinha.
+- Relatórios operacionais.
+- Exportação CSV de pedidos, produtos e clientes.
+- Histórico de clientes por WhatsApp.
+- Botão para repetir último pedido de cliente.
+- Aba de assinatura/cobrança planejada para integração futura com Asaas.
+- Base mais próxima de uma operação real antes da migração para Supabase + Asaas.
 
-Observação:
-Esta versão ainda é uma demo local baseada em localStorage. Para venda em escala como SaaS real, o próximo passo é migrar para backend, banco de dados, autenticação real e multi-restaurante.
+Observação importante:
+Esta versão ainda é uma DEMO LOCAL e usa localStorage. Ela é boa para apresentação comercial, validação com clientes e testes de fluxo. Para vender como SaaS real, o próximo passo é migrar para backend, banco de dados, login real e cobrança integrada.
+
+Próxima etapa recomendada:
+- Next.js + Supabase para multi-restaurante, banco, login e storage.
+- Asaas para cobrança mensal dos estabelecimentos.
+- Webhooks para ativar/bloquear assinatura automaticamente.

@@ -1,7 +1,7 @@
 {
-  "name": "Delícia Digital v3",
+  "name": "Delícia Digital v5",
   "short_name": "Delícia",
-  "description": "Cardápio digital comercial com QR Code, WhatsApp, pedidos, painel admin, analytics e PWA.",
+  "description": "Cardápio digital operacional com QR Code, WhatsApp, pedidos, cozinha, estoque, relatórios, clientes e PWA.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

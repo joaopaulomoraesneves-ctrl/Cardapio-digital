@@ -1,4 +1,4 @@
-const CACHE_NAME = 'delicia-digital-v3.1';
+const CACHE_NAME = 'delicia-digital-v5-operacional';
 const APP_SHELL = [
   './',
   './index.html',

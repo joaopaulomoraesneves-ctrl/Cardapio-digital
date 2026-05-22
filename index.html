@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#121212">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Delícia Digital">
-    <title>Delícia Digital v3 – Cardápio Comercial</title>
+    <title>Delícia Digital v5 – Operacional</title>
     <link rel="manifest" href="manifest.webmanifest">
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -109,8 +109,8 @@
                                 <p id="hero-pickup-time" class="font-bold">15 a 25 min</p>
                             </div>
                             <div class="bg-black/30 rounded-2xl p-3">
-                                <p class="text-gray-400 text-xs">Pagamento</p>
-                                <p class="font-bold">Pix • Cartão • Dinheiro</p>
+                                <p class="text-gray-400 text-xs">Funcionamento hoje</p>
+                                <p id="hero-hours-today" class="font-bold">--</p>
                             </div>
                         </div>
                     </div>
@@ -145,7 +145,7 @@
         </main>
 
         <footer class="max-w-6xl mx-auto px-5 py-12 text-center text-xs text-gray-500">
-            <p>Delícia Digital v3 • Cardápio comercial demonstrativo</p>
+            <p>Delícia Digital v5 • Operação, estoque, cozinha e relatórios</p>
             <a href="#admin" class="inline-block mt-3 underline hover:text-gray-300">Acesso do estabelecimento</a>
         </footer>
     </div>
@@ -176,17 +176,29 @@
                 <nav class="flex gap-2 overflow-x-auto hide-scrollbar border-b border-gray-800 pb-3 mb-5">
                     <button class="admin-tab active px-4 py-2 rounded-full border border-gray-700 text-sm font-bold" data-admin-tab="dashboard">Dashboard</button>
                     <button class="admin-tab px-4 py-2 rounded-full border border-gray-700 text-sm font-bold" data-admin-tab="pedidos">Pedidos</button>
+                    <button class="admin-tab px-4 py-2 rounded-full border border-gray-700 text-sm font-bold" data-admin-tab="cozinha">Cozinha</button>
+                    <button class="admin-tab px-4 py-2 rounded-full border border-gray-700 text-sm font-bold" data-admin-tab="estoque">Estoque</button>
                     <button class="admin-tab px-4 py-2 rounded-full border border-gray-700 text-sm font-bold" data-admin-tab="produtos">Produtos</button>
                     <button class="admin-tab px-4 py-2 rounded-full border border-gray-700 text-sm font-bold" data-admin-tab="config">Configurações</button>
+                    <button class="admin-tab px-4 py-2 rounded-full border border-gray-700 text-sm font-bold" data-admin-tab="horarios">Horários</button>
                     <button class="admin-tab px-4 py-2 rounded-full border border-gray-700 text-sm font-bold" data-admin-tab="analytics">Analytics</button>
+                    <button class="admin-tab px-4 py-2 rounded-full border border-gray-700 text-sm font-bold" data-admin-tab="clientes">Clientes</button>
+                    <button class="admin-tab px-4 py-2 rounded-full border border-gray-700 text-sm font-bold" data-admin-tab="relatorios">Relatórios</button>
+                    <button class="admin-tab px-4 py-2 rounded-full border border-gray-700 text-sm font-bold" data-admin-tab="assinatura">Assinatura</button>
                     <button class="admin-tab px-4 py-2 rounded-full border border-gray-700 text-sm font-bold" data-admin-tab="qrcode">QR por mesa</button>
                 </nav>
 
                 <div id="admin-dashboard" class="admin-page"></div>
                 <div id="admin-pedidos" class="admin-page hidden"></div>
+                <div id="admin-cozinha" class="admin-page hidden"></div>
+                <div id="admin-estoque" class="admin-page hidden"></div>
                 <div id="admin-produtos" class="admin-page hidden"></div>
                 <div id="admin-config" class="admin-page hidden"></div>
+                <div id="admin-horarios" class="admin-page hidden"></div>
                 <div id="admin-analytics" class="admin-page hidden"></div>
+                <div id="admin-clientes" class="admin-page hidden"></div>
+                <div id="admin-relatorios" class="admin-page hidden"></div>
+                <div id="admin-assinatura" class="admin-page hidden"></div>
                 <div id="admin-qrcode" class="admin-page hidden"></div>
             </section>
         </div>
@@ -340,12 +352,12 @@
     'use strict';
 
     const STORAGE = {
-        settings: 'delicia_v3_settings',
-        products: 'delicia_v3_products',
-        cart: 'delicia_v3_cart',
-        orders: 'delicia_v3_orders',
-        analytics: 'delicia_v3_analytics',
-        coupon: 'delicia_v3_coupon'
+        settings: 'delicia_v5_settings',
+        products: 'delicia_v5_products',
+        cart: 'delicia_v5_cart',
+        orders: 'delicia_v5_orders',
+        analytics: 'delicia_v5_analytics',
+        coupon: 'delicia_v5_coupon'
     };
 
     const ADMIN_PASSWORD_HASH = '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9';
@@ -364,6 +376,7 @@
         deliveryTime: '40 a 60 min',
         pickupTime: '15 a 25 min',
         address: 'Rua Exemplo, 123 - Centro',
+        openMode: 'schedule',
         isOpenManual: true,
         neighborhoods: [
             { name: 'Centro', fee: 5 },
@@ -619,13 +632,98 @@
     function persistOrders() { saveJSON(STORAGE.orders, orders); }
     function persistAnalytics() { saveJSON(STORAGE.analytics, analytics); }
 
+    const DAY_LABELS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+
+    function decimalToTime(value) {
+        const number = Number(value || 0);
+        const hours = Math.floor(number);
+        const minutes = Math.round((number - hours) * 60);
+        return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+    }
+
+    function timeToMinutes(value) {
+        if (typeof value === 'number') return Math.round(value * 60);
+        const parts = String(value || '').split(':');
+        const hours = Number(parts[0]);
+        const minutes = Number(parts[1] || 0);
+        if (Number.isNaN(hours) || Number.isNaN(minutes)) return null;
+        return hours * 60 + minutes;
+    }
+
+    function minutesToTime(minutes) {
+        const normalized = ((Number(minutes || 0) % 1440) + 1440) % 1440;
+        return `${String(Math.floor(normalized / 60)).padStart(2, '0')}:${String(normalized % 60).padStart(2, '0')}`;
+    }
+
+    function normalizeDayHours(dayConfig) {
+        if (!dayConfig) return { enabled: false, intervals: [] };
+        if (Array.isArray(dayConfig.intervals)) {
+            const intervals = dayConfig.intervals
+                .map(interval => ({ open: interval.open || '', close: interval.close || '' }))
+                .filter(interval => interval.open && interval.close);
+            return { enabled: dayConfig.enabled !== false && intervals.length > 0, intervals };
+        }
+        if (dayConfig.open !== undefined && dayConfig.close !== undefined) {
+            return { enabled: true, intervals: [{ open: decimalToTime(dayConfig.open), close: decimalToTime(dayConfig.close) }] };
+        }
+        return { enabled: false, intervals: [] };
+    }
+
+    function getNormalizedHours() {
+        const source = settings.hours || {};
+        return DAY_LABELS.reduce((acc, _, day) => {
+            acc[day] = normalizeDayHours(source[day]);
+            return acc;
+        }, {});
+    }
+
+    function isTimeInsideInterval(nowMinutes, openMinutes, closeMinutes) {
+        if (openMinutes === null || closeMinutes === null || openMinutes === closeMinutes) return false;
+        if (closeMinutes > openMinutes) return nowMinutes >= openMinutes && nowMinutes < closeMinutes;
+        return nowMinutes >= openMinutes || nowMinutes < closeMinutes;
+    }
+
+    function isOpenBySchedule(date = new Date()) {
+        const hours = getNormalizedHours();
+        const day = date.getDay();
+        const config = hours[day];
+        if (!config.enabled) return false;
+        const nowMinutes = date.getHours() * 60 + date.getMinutes();
+        return config.intervals.some(interval => isTimeInsideInterval(nowMinutes, timeToMinutes(interval.open), timeToMinutes(interval.close)));
+    }
+
     function isOpenNow() {
-        if (!settings.isOpenManual) return false;
-        const now = new Date();
-        const config = settings.hours[now.getDay()];
-        if (!config) return false;
-        const hour = now.getHours() + now.getMinutes() / 60;
-        return hour >= Number(config.open) && hour < Number(config.close);
+        if (settings.openMode === 'open') return true;
+        if (settings.openMode === 'closed' || settings.isOpenManual === false) return false;
+        return isOpenBySchedule();
+    }
+
+    function formatDayHours(dayIndex) {
+        const config = getNormalizedHours()[dayIndex];
+        if (!config || !config.enabled || !config.intervals.length) return 'Fechado';
+        return config.intervals.map(interval => `${interval.open}–${interval.close}`).join(' / ');
+    }
+
+    function getTodayHoursLabel() {
+        return formatDayHours(new Date().getDay());
+    }
+
+    function getNextOpeningLabel(from = new Date()) {
+        const hours = getNormalizedHours();
+        const nowDay = from.getDay();
+        const nowMinutes = from.getHours() * 60 + from.getMinutes();
+        for (let offset = 0; offset < 8; offset++) {
+            const day = (nowDay + offset) % 7;
+            const config = hours[day];
+            if (!config.enabled) continue;
+            for (const interval of config.intervals) {
+                const openMinutes = timeToMinutes(interval.open);
+                if (openMinutes === null) continue;
+                if (offset === 0 && openMinutes <= nowMinutes) continue;
+                return `${offset === 0 ? 'hoje' : DAY_LABELS[day].toLowerCase()} às ${minutesToTime(openMinutes)}`;
+            }
+        }
+        return 'sem próximo horário cadastrado';
     }
 
     function setAccentColor() {
@@ -696,6 +794,7 @@
         $('hero-delivery-time').textContent = settings.deliveryTime;
         $('hero-pickup-time').textContent = settings.pickupTime;
         $('hero-min-order').textContent = money(settings.minOrder);
+        $('hero-hours-today').textContent = getTodayHoursLabel();
         const logo = $('store-logo');
         if (settings.logoUrl) logo.innerHTML = `<img src="${escapeHTML(settings.logoUrl)}" alt="Logo" class="w-full h-full object-cover" onerror="this.parentElement.textContent='🍽️'">`;
         else logo.textContent = segmentIcon(settings.segment);
@@ -721,7 +820,10 @@
 
     function updateBanners() {
         $('offline-banner').classList.toggle('hidden', navigator.onLine);
-        $('closed-banner').classList.toggle('hidden', isOpenNow());
+        const open = isOpenNow();
+        $('closed-banner').classList.toggle('hidden', open);
+        if (!open) $('closed-banner').innerHTML = `🕒 Estamos fechados no momento. Horário de hoje: <strong>${escapeHTML(getTodayHoursLabel())}</strong>. Próxima abertura: <strong>${escapeHTML(getNextOpeningLabel())}</strong>.`;
+        if ($('hero-hours-today')) $('hero-hours-today').textContent = getTodayHoursLabel();
     }
 
     function renderHighlights() {
@@ -777,14 +879,17 @@
     }
 
     function renderProductCard(product) {
-        const lowStock = Number(product.stock) > 0 && Number(product.stock) <= 5;
+        const stock = Number(product.stock || 0);
+        const unavailable = stock <= 0;
+        const lowStock = stock > 0 && stock <= Number(product.stockMin || 5);
         const tags = (product.tags || []).slice(0, 3).map(tag => `<span class="text-[11px] px-2 py-1 rounded-full bg-black/60 text-white">${escapeHTML(tag)}</span>`).join('');
         return `
-            <article class="bg-premium-gray border border-gray-800 rounded-3xl overflow-hidden flex flex-col hover:border-gray-600 transition">
-                <div class="relative h-44 overflow-hidden cursor-pointer btn-product-details" data-id="${escapeHTML(product.id)}">
-                    <img src="${escapeHTML(product.image || FALLBACK_IMAGE)}" alt="${escapeHTML(product.name)}" class="w-full h-full object-cover transition hover:scale-105" loading="lazy" onerror="this.src='${FALLBACK_IMAGE}'">
+            <article class="bg-premium-gray border ${unavailable ? 'border-red-800/70 opacity-75' : 'border-gray-800'} rounded-3xl overflow-hidden flex flex-col hover:border-gray-600 transition">
+                <div class="relative h-44 overflow-hidden ${unavailable ? '' : 'cursor-pointer btn-product-details'}" data-id="${escapeHTML(product.id)}">
+                    <img src="${escapeHTML(product.image || FALLBACK_IMAGE)}" alt="${escapeHTML(product.name)}" class="w-full h-full object-cover transition ${unavailable ? 'grayscale' : 'hover:scale-105'}" loading="lazy" onerror="this.src='${FALLBACK_IMAGE}'">
                     <div class="absolute top-3 left-3 flex flex-wrap gap-1">${tags}</div>
-                    ${product.oldPrice ? `<div class="absolute bottom-3 right-3 bg-red-600 text-white text-xs font-bold rounded-full px-3 py-1">Economize ${money(product.oldPrice - product.price)}</div>` : ''}
+                    ${unavailable ? `<div class="absolute inset-0 bg-black/55 flex items-center justify-center"><span class="bg-red-600 text-white text-sm font-extrabold rounded-full px-4 py-2">Indisponível</span></div>` : ''}
+                    ${product.oldPrice && !unavailable ? `<div class="absolute bottom-3 right-3 bg-red-600 text-white text-xs font-bold rounded-full px-3 py-1">Economize ${money(product.oldPrice - product.price)}</div>` : ''}
                 </div>
                 <div class="p-5 flex flex-col flex-1">
                     <div class="flex justify-between gap-3 items-start mb-2">
@@ -794,7 +899,7 @@
                     <p class="text-sm text-gray-400 line-clamp-2">${escapeHTML(product.description)}</p>
                     <div class="flex flex-wrap gap-2 mt-3 text-xs text-gray-300">
                         <span class="bg-premium-dark rounded-full px-2 py-1">${escapeHTML(product.serve || product.unit || 'unidade')}</span>
-                        ${settings.segment === 'distribuidora' || product.category === 'Distribuidora' ? `<span class="bg-premium-dark rounded-full px-2 py-1">Estoque: ${Number(product.stock || 0)}</span>` : ''}
+                        <span class="bg-premium-dark rounded-full px-2 py-1">Estoque: ${stock}</span>
                         ${lowStock ? '<span class="bg-red-600/30 text-red-300 rounded-full px-2 py-1">Estoque baixo</span>' : ''}
                     </div>
                     <div class="mt-auto pt-5 flex items-end justify-between gap-3">
@@ -802,7 +907,7 @@
                             ${product.oldPrice ? `<p class="text-xs text-gray-500 line-through">${money(product.oldPrice)}</p>` : ''}
                             <p class="text-2xl font-extrabold accent-text">${money(product.price)}</p>
                         </div>
-                        <button class="btn-add-product px-4 py-3 rounded-2xl accent-bg text-premium-dark font-bold hover:opacity-90" data-id="${escapeHTML(product.id)}">Adicionar</button>
+                        <button class="btn-add-product px-4 py-3 rounded-2xl ${unavailable ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'accent-bg text-premium-dark hover:opacity-90'} font-bold" data-id="${escapeHTML(product.id)}" ${unavailable ? 'disabled' : ''}>${unavailable ? 'Esgotado' : 'Adicionar'}</button>
                     </div>
                 </div>
             </article>
@@ -826,9 +931,29 @@
         updateCartFinancials();
     }
 
+    function getProductStock(productId) {
+        const product = products.find(p => p.id === productId);
+        return Number(product?.stock || 0);
+    }
+
+    function quantityInCart(productId) {
+        return cart.filter(item => item.productId === productId).reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+    }
+
+    function canAddProduct(productId, qty = 1) {
+        const product = products.find(p => p.id === productId);
+        if (!product || product.active === false) return { ok: false, message: 'Produto indisponível.' };
+        const stock = Number(product.stock || 0);
+        if (stock <= 0) return { ok: false, message: `${product.name} está sem estoque.` };
+        if (quantityInCart(productId) + qty > stock) return { ok: false, message: `Estoque insuficiente para ${product.name}. Disponível: ${stock}.` };
+        return { ok: true };
+    }
+
     function quickAdd(productId) {
         const product = products.find(p => p.id === productId);
         if (!product) return;
+        const availability = canAddProduct(productId, 1);
+        if (!availability.ok) { showToast(availability.message, 'error'); return; }
         if (product.extras && product.extras.length) {
             openProductDetails(productId);
             return;
@@ -839,6 +964,8 @@
     function openProductDetails(productId) {
         const product = products.find(p => p.id === productId);
         if (!product) return;
+        const availability = canAddProduct(productId, 1);
+        if (!availability.ok) { showToast(availability.message, 'error'); return; }
         currentProduct = product;
         $('detail-image').src = product.image || FALLBACK_IMAGE;
         $('detail-name').textContent = product.name;
@@ -893,6 +1020,8 @@
     }
 
     function addToCart(product, extras = [], extraPrice = 0) {
+        const availability = canAddProduct(product.id, 1);
+        if (!availability.ok) { showToast(availability.message, 'error'); return; }
         const unitPrice = Number(product.price) + Number(extraPrice || 0);
         const keyExtras = JSON.stringify(extras.map(extra => extra.name));
         const existing = cart.find(item => item.productId === product.id && JSON.stringify(item.extras.map(extra => extra.name)) === keyExtras && !item.note);
@@ -1024,6 +1153,10 @@
 
     function changeCartQty(index, delta) {
         if (!cart[index]) return;
+        if (delta > 0) {
+            const availability = canAddProduct(cart[index].productId, 1);
+            if (!availability.ok) { showToast(availability.message, 'error'); return; }
+        }
         cart[index].quantity += delta;
         if (cart[index].quantity <= 0) cart.splice(index, 1);
         persistCart();
@@ -1158,6 +1291,7 @@
             createdAt: new Date().toISOString(),
             createdLabel: getNowString(),
             status: 'novo',
+            stockApplied: false,
             customer: {
                 name: $('checkout-name').value.trim(),
                 phone: $('checkout-phone').value.trim()
@@ -1183,6 +1317,8 @@
                 total: finalTotal()
             }
         };
+        const stockIssue = order.items.find(item => !canAddProduct(item.productId, 0).ok || Number(item.quantity || 0) > getProductStock(item.productId));
+        if (stockIssue) { showToast(`Estoque insuficiente para ${stockIssue.name}. Atualize o carrinho.`, 'error'); return; }
         orders.unshift(order);
         persistOrders();
         analytics.orders += 1;
@@ -1275,9 +1411,15 @@
         $(`admin-${tab}`).classList.remove('hidden');
         if (tab === 'dashboard') renderAdminDashboard();
         if (tab === 'pedidos') renderAdminOrders();
+        if (tab === 'cozinha') renderAdminKitchen();
+        if (tab === 'estoque') renderAdminStock();
         if (tab === 'produtos') renderAdminProducts();
         if (tab === 'config') renderAdminConfig();
+        if (tab === 'horarios') renderAdminHours();
         if (tab === 'analytics') renderAdminAnalytics();
+        if (tab === 'clientes') renderAdminClients();
+        if (tab === 'relatorios') renderAdminReports();
+        if (tab === 'assinatura') renderAdminSubscription();
         if (tab === 'qrcode') renderAdminQRCodes();
     }
 
@@ -1314,10 +1456,13 @@
                         <div class="flex justify-between"><span>Estabelecimento</span><strong>${escapeHTML(settings.businessName)}</strong></div>
                         <div class="flex justify-between"><span>Segmento</span><strong>${segmentLabel(settings.segment)}</strong></div>
                         <div class="flex justify-between"><span>Status</span><strong class="${isOpenNow() ? 'text-green-400' : 'text-red-400'}">${isOpenNow() ? 'Aberto' : 'Fechado'}</strong></div>
+                        <div class="flex justify-between"><span>Hoje</span><strong>${escapeHTML(getTodayHoursLabel())}</strong></div>
+                        <div class="flex justify-between"><span>Próxima abertura</span><strong>${escapeHTML(getNextOpeningLabel())}</strong></div>
                         <div class="flex justify-between"><span>Produtos ativos</span><strong>${products.filter(p => p.active !== false).length}</strong></div>
                         <div class="flex justify-between"><span>Pedido mínimo</span><strong>${money(settings.minOrder)}</strong></div>
                     </div>
-                    <button class="mt-5 w-full px-4 py-3 rounded-2xl accent-bg text-premium-dark font-bold" data-go-tab="config">Editar configurações</button>
+                    <button class="mt-5 w-full px-4 py-3 rounded-2xl accent-bg text-premium-dark font-bold" data-go-tab="horarios">Editar horários</button>
+                    <button class="mt-3 w-full px-4 py-3 rounded-2xl border border-gray-700 font-bold" data-go-tab="config">Editar configurações</button>
                 </section>
             </div>
         `;
@@ -1329,20 +1474,24 @@
     }
 
     function renderOrderCard(order) {
+        const typeLabel = order.fulfillment?.type === 'mesa' ? `Mesa ${order.fulfillment.table || '-'}` : order.fulfillment?.type === 'retirada' ? 'Retirada' : 'Entrega';
         return `
             <article class="bg-premium-dark/70 border border-gray-800 rounded-2xl p-4">
                 <div class="flex justify-between gap-3">
                     <div>
                         <h3 class="font-bold">${escapeHTML(order.customer?.name || 'Cliente')}</h3>
-                        <p class="text-xs text-gray-500">${escapeHTML(order.id)} • ${escapeHTML(order.createdLabel || '')}</p>
+                        <p class="text-xs text-gray-500">${escapeHTML(order.id)} • ${escapeHTML(order.createdLabel || '')} • ${escapeHTML(typeLabel)}</p>
                     </div>
                     <span class="px-3 py-1 h-fit rounded-full text-xs font-bold ${statusClass(order.status)}">${statusLabel(order.status)}</span>
                 </div>
                 <p class="text-sm text-gray-400 mt-2">${order.items?.map(item => `${item.quantity}x ${item.name}`).join(', ')}</p>
-                <div class="flex justify-between items-center mt-3">
+                ${order.notes ? `<p class="text-xs text-yellow-300 mt-2">Obs: ${escapeHTML(order.notes)}</p>` : ''}
+                <div class="flex justify-between items-center mt-3 gap-3">
                     <strong class="accent-text">${money(order.totals?.total || 0)}</strong>
                     <div class="flex gap-2 flex-wrap justify-end">
-                        ${['aceito', 'preparando', 'saiu', 'finalizado'].map(status => `<button class="btn-order-status text-xs px-2 py-1 rounded-lg bg-gray-700 hover:bg-gray-600" data-order="${order.id}" data-status="${status}">${statusLabel(status)}</button>`).join('')}
+                        <button class="btn-print-order text-xs px-2 py-1 rounded-lg bg-gray-700 hover:bg-gray-600" data-order="${escapeHTML(order.id)}">Imprimir</button>
+                        ${['aceito', 'preparando', 'pronto', 'saiu', 'finalizado'].map(status => `<button class="btn-order-status text-xs px-2 py-1 rounded-lg bg-gray-700 hover:bg-gray-600" data-order="${order.id}" data-status="${status}">${statusLabel(status)}</button>`).join('')}
+                        <button class="btn-order-status text-xs px-2 py-1 rounded-lg bg-red-700 hover:bg-red-600" data-order="${escapeHTML(order.id)}" data-status="cancelado">Cancelar</button>
                     </div>
                 </div>
             </article>
@@ -1350,21 +1499,21 @@
     }
 
     function statusLabel(status) {
-        return { novo: 'Novo', aceito: 'Aceito', preparando: 'Preparando', saiu: 'Saiu', finalizado: 'Finalizado', cancelado: 'Cancelado' }[status] || 'Novo';
+        return { novo: 'Novo', aceito: 'Aceito', preparando: 'Preparando', pronto: 'Pronto', saiu: 'Saiu', finalizado: 'Finalizado', cancelado: 'Cancelado' }[status] || 'Novo';
     }
 
     function statusClass(status) {
-        return { novo: 'bg-blue-600 text-white', aceito: 'bg-yellow-500 text-black', preparando: 'bg-orange-500 text-white', saiu: 'bg-purple-600 text-white', finalizado: 'bg-green-600 text-white', cancelado: 'bg-red-600 text-white' }[status] || 'bg-blue-600 text-white';
+        return { novo: 'bg-blue-600 text-white', aceito: 'bg-yellow-500 text-black', preparando: 'bg-orange-500 text-white', pronto: 'bg-cyan-600 text-white', saiu: 'bg-purple-600 text-white', finalizado: 'bg-green-600 text-white', cancelado: 'bg-red-600 text-white' }[status] || 'bg-blue-600 text-white';
     }
 
     function renderAdminOrders() {
-        const lanes = ['novo', 'aceito', 'preparando', 'saiu', 'finalizado'];
+        const lanes = ['novo', 'aceito', 'preparando', 'pronto', 'saiu', 'finalizado'];
         $('admin-pedidos').innerHTML = `
             <div class="flex justify-between items-center gap-3 mb-4">
                 <div><h2 class="text-2xl font-bold accent-text">Central de pedidos</h2><p class="text-sm text-gray-400">Atualize o status para acompanhar a operação.</p></div>
                 <button id="btn-clear-orders" class="px-4 py-2 rounded-xl bg-red-600 text-sm font-bold">Limpar pedidos</button>
             </div>
-            <div class="grid gap-4 lg:grid-cols-5">
+            <div class="grid gap-4 lg:grid-cols-6">
                 ${lanes.map(lane => `
                     <section class="bg-premium-gray border border-gray-800 rounded-3xl p-3 min-h-[250px]">
                         <h3 class="font-bold mb-3 accent-text">${statusLabel(lane)} <span class="text-gray-500">${orders.filter(o => o.status === lane).length}</span></h3>
@@ -1386,12 +1535,299 @@
         qsa('.btn-order-status').forEach(btn => btn.addEventListener('click', () => {
             const order = orders.find(item => item.id === btn.dataset.order);
             if (!order) return;
-            order.status = btn.dataset.status;
-            persistOrders();
-            renderAdminShell();
+            updateOrderStatus(order.id, btn.dataset.status);
             const active = document.querySelector('.admin-tab.active')?.dataset.adminTab || 'dashboard';
             switchAdminTab(active);
         }));
+        qsa('.btn-print-order').forEach(btn => btn.addEventListener('click', () => printOrder(btn.dataset.order)));
+    }
+
+    function updateOrderStatus(orderId, newStatus) {
+        const order = orders.find(item => item.id === orderId);
+        if (!order) return;
+        const previous = order.status;
+        order.status = newStatus;
+        order.updatedAt = new Date().toISOString();
+        if (!order.stockApplied && ['aceito', 'preparando', 'pronto', 'saiu', 'finalizado'].includes(newStatus)) {
+            applyStockForOrder(order);
+            order.stockApplied = true;
+            showToast('Estoque baixado para este pedido.');
+        }
+        if (order.stockApplied && newStatus === 'cancelado' && previous !== 'cancelado') {
+            restoreStockForOrder(order);
+            order.stockApplied = false;
+            showToast('Pedido cancelado e estoque devolvido.');
+        }
+        persistProducts();
+        persistOrders();
+        renderPublic();
+    }
+
+    function applyStockForOrder(order) {
+        (order.items || []).forEach(item => {
+            const product = products.find(p => p.id === item.productId);
+            if (!product) return;
+            product.stock = Math.max(0, Number(product.stock || 0) - Number(item.quantity || 0));
+        });
+    }
+
+    function restoreStockForOrder(order) {
+        (order.items || []).forEach(item => {
+            const product = products.find(p => p.id === item.productId);
+            if (!product) return;
+            product.stock = Number(product.stock || 0) + Number(item.quantity || 0);
+        });
+    }
+
+    function renderAdminKitchen() {
+        const kitchenOrders = orders.filter(order => ['novo', 'aceito', 'preparando'].includes(order.status));
+        $('admin-cozinha').innerHTML = `
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-5">
+                <div><h2 class="text-2xl font-bold accent-text">Tela da cozinha</h2><p class="text-sm text-gray-400">Pedidos abertos, pensados para tablet ou monitor na operação.</p></div>
+                <button id="btn-print-kitchen" class="px-4 py-2 rounded-xl accent-bg text-premium-dark text-sm font-bold">Imprimir pedidos abertos</button>
+            </div>
+            <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                ${kitchenOrders.map(order => `
+                    <article class="bg-premium-gray border border-gray-800 rounded-3xl p-5">
+                        <div class="flex justify-between gap-3 mb-3">
+                            <div><h3 class="text-xl font-extrabold">${escapeHTML(order.id)}</h3><p class="text-xs text-gray-400">${escapeHTML(order.createdLabel || '')}</p></div>
+                            <span class="px-3 py-1 h-fit rounded-full text-xs font-bold ${statusClass(order.status)}">${statusLabel(order.status)}</span>
+                        </div>
+                        <p class="text-sm text-gray-300 mb-3">${order.fulfillment?.type === 'mesa' ? 'Mesa ' + escapeHTML(order.fulfillment.table || '-') : order.fulfillment?.type === 'retirada' ? 'Retirada' : 'Entrega'}</p>
+                        <div class="space-y-3 mb-4">
+                            ${(order.items || []).map(item => `<div class="bg-premium-dark/70 rounded-2xl p-3"><strong>${item.quantity}x ${escapeHTML(item.name)}</strong>${item.extras?.length ? `<p class="text-xs text-gray-400">${item.extras.map(e => escapeHTML(e.name)).join(', ')}</p>` : ''}${item.note ? `<p class="text-xs text-yellow-300">Obs: ${escapeHTML(item.note)}</p>` : ''}</div>`).join('')}
+                        </div>
+                        ${order.notes ? `<p class="text-sm text-yellow-300 mb-4">Obs. geral: ${escapeHTML(order.notes)}</p>` : ''}
+                        <div class="grid grid-cols-2 gap-2">
+                            <button class="btn-order-status px-3 py-2 rounded-xl bg-orange-600 font-bold" data-order="${escapeHTML(order.id)}" data-status="preparando">Preparando</button>
+                            <button class="btn-order-status px-3 py-2 rounded-xl bg-cyan-600 font-bold" data-order="${escapeHTML(order.id)}" data-status="pronto">Pronto</button>
+                        </div>
+                    </article>
+                `).join('') || '<p class="text-gray-500">Nenhum pedido pendente para a cozinha.</p>'}
+            </div>
+        `;
+        bindOrderStatusButtons();
+        $('btn-print-kitchen')?.addEventListener('click', printKitchenOrders);
+    }
+
+    function renderAdminStock() {
+        const low = products.filter(product => Number(product.stock || 0) <= Number(product.stockMin || 5));
+        $('admin-estoque').innerHTML = `
+            <div class="grid gap-3 md:grid-cols-4 mb-5">
+                ${metricCard('Produtos cadastrados', products.length)}
+                ${metricCard('Itens em estoque', products.reduce((sum, p) => sum + Number(p.stock || 0), 0))}
+                ${metricCard('Estoque baixo', low.length)}
+                ${metricCard('Indisponíveis', products.filter(p => Number(p.stock || 0) <= 0 || p.active === false).length)}
+            </div>
+            <section class="bg-premium-gray border border-gray-800 rounded-3xl p-5">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
+                    <div><h2 class="text-2xl font-bold accent-text">Controle de estoque</h2><p class="text-sm text-gray-400">Ajuste quantidades, estoque mínimo e disponibilidade.</p></div>
+                    <button id="btn-export-products" class="px-4 py-2 rounded-xl bg-gray-700 text-sm font-bold">Exportar produtos CSV</button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="text-left text-gray-400"><tr><th class="py-2">Produto</th><th>Categoria</th><th>Estoque</th><th>Mínimo</th><th>Status</th></tr></thead>
+                        <tbody>
+                            ${products.map(product => `<tr class="border-t border-gray-800">
+                                <td class="py-3 font-bold accent-text">${escapeHTML(product.name)}</td>
+                                <td>${escapeHTML(product.category)}</td>
+                                <td><input class="stock-input w-24 px-3 py-2 rounded-xl bg-premium-dark border border-gray-700" type="number" min="0" value="${Number(product.stock || 0)}" data-id="${escapeHTML(product.id)}" data-field="stock"></td>
+                                <td><input class="stock-input w-24 px-3 py-2 rounded-xl bg-premium-dark border border-gray-700" type="number" min="0" value="${Number(product.stockMin || 5)}" data-id="${escapeHTML(product.id)}" data-field="stockMin"></td>
+                                <td><button class="btn-toggle-product px-3 py-2 rounded-xl ${product.active === false ? 'bg-green-600' : 'bg-yellow-600'} font-bold" data-id="${escapeHTML(product.id)}">${product.active === false ? 'Ativar' : 'Pausar'}</button></td>
+                            </tr>`).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                <button id="btn-save-stock" class="mt-5 w-full accent-bg text-premium-dark py-3 rounded-2xl font-bold">Salvar ajustes de estoque</button>
+            </section>
+        `;
+        qsa('.btn-toggle-product').forEach(btn => btn.addEventListener('click', () => { toggleProduct(btn.dataset.id); renderAdminStock(); }));
+        $('btn-save-stock').addEventListener('click', saveStockAdjustments);
+        $('btn-export-products').addEventListener('click', exportProductsCSV);
+    }
+
+    function saveStockAdjustments() {
+        qsa('.stock-input').forEach(input => {
+            const product = products.find(p => p.id === input.dataset.id);
+            if (!product) return;
+            product[input.dataset.field] = Math.max(0, Number(input.value || 0));
+        });
+        persistProducts();
+        renderPublic();
+        renderAdminStock();
+        showToast('Estoque atualizado.');
+    }
+
+    function getCustomers() {
+        const map = new Map();
+        orders.forEach(order => {
+            const phone = String(order.customer?.phone || '').replace(/\D/g, '') || 'sem-telefone';
+            if (!map.has(phone)) map.set(phone, { phone, name: order.customer?.name || 'Cliente', orders: 0, total: 0, lastOrder: order, lastAt: order.createdAt });
+            const customer = map.get(phone);
+            customer.orders += 1;
+            customer.total += Number(order.totals?.total || 0);
+            if (String(order.createdAt) > String(customer.lastAt)) { customer.lastAt = order.createdAt; customer.lastOrder = order; customer.name = order.customer?.name || customer.name; }
+        });
+        return [...map.values()].sort((a, b) => String(b.lastAt).localeCompare(String(a.lastAt)));
+    }
+
+    function renderAdminClients() {
+        const customers = getCustomers();
+        $('admin-clientes').innerHTML = `
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-5">
+                <div><h2 class="text-2xl font-bold accent-text">Histórico de clientes</h2><p class="text-sm text-gray-400">Clientes são identificados pelo WhatsApp informado no pedido.</p></div>
+                <button id="btn-export-clients" class="px-4 py-2 rounded-xl bg-gray-700 text-sm font-bold">Exportar clientes CSV</button>
+            </div>
+            <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                ${customers.map(customer => `<article class="bg-premium-gray border border-gray-800 rounded-3xl p-5">
+                    <h3 class="text-xl font-bold accent-text">${escapeHTML(customer.name)}</h3>
+                    <p class="text-sm text-gray-400">${escapeHTML(customer.phone)}</p>
+                    <div class="grid grid-cols-2 gap-2 mt-4 text-sm"><div class="bg-premium-dark rounded-2xl p-3"><p class="text-gray-500">Pedidos</p><strong>${customer.orders}</strong></div><div class="bg-premium-dark rounded-2xl p-3"><p class="text-gray-500">Total</p><strong>${money(customer.total)}</strong></div></div>
+                    <p class="text-xs text-gray-500 mt-3">Último pedido: ${escapeHTML(customer.lastOrder?.id || '')}</p>
+                    <div class="grid grid-cols-2 gap-2 mt-4">
+                        <button class="btn-repeat-order px-3 py-2 rounded-xl accent-bg text-premium-dark font-bold text-sm" data-order="${escapeHTML(customer.lastOrder?.id || '')}">Repetir pedido</button>
+                        <button class="btn-whatsapp-client px-3 py-2 rounded-xl bg-green-600 font-bold text-sm" data-phone="${escapeHTML(customer.phone)}">WhatsApp</button>
+                    </div>
+                </article>`).join('') || '<p class="text-gray-500">Nenhum cliente registrado ainda.</p>'}
+            </div>
+        `;
+        qsa('.btn-repeat-order').forEach(btn => btn.addEventListener('click', () => repeatOrderToCart(btn.dataset.order)));
+        qsa('.btn-whatsapp-client').forEach(btn => btn.addEventListener('click', () => window.open(`https://wa.me/55${btn.dataset.phone.replace(/^55/, '')}`, '_blank')));
+        $('btn-export-clients')?.addEventListener('click', exportClientsCSV);
+    }
+
+    function repeatOrderToCart(orderId) {
+        const order = orders.find(item => item.id === orderId);
+        if (!order) return;
+        cart = clone(order.items || []).map(item => ({ ...item, note: item.note || '' }));
+        persistCart();
+        renderPublic();
+        showToast('Último pedido carregado no carrinho público.');
+        location.hash = '';
+        setTimeout(openCart, 200);
+    }
+
+    function renderAdminReports() {
+        const today = todayOrders();
+        const finished = orders.filter(o => o.status === 'finalizado');
+        const revenueToday = today.reduce((sum, order) => sum + Number(order.totals?.total || 0), 0);
+        const byPayment = orders.reduce((acc, order) => { const key = order.payment?.method || 'Não informado'; acc[key] = (acc[key] || 0) + Number(order.totals?.total || 0); return acc; }, {});
+        const canceled = orders.filter(o => o.status === 'cancelado').length;
+        $('admin-relatorios').innerHTML = `
+            <div class="grid gap-3 md:grid-cols-4 mb-5">
+                ${metricCard('Vendas hoje', money(revenueToday))}
+                ${metricCard('Pedidos hoje', today.length)}
+                ${metricCard('Finalizados', finished.length)}
+                ${metricCard('Cancelados', canceled)}
+            </div>
+            <div class="grid gap-5 lg:grid-cols-2">
+                <section class="bg-premium-gray border border-gray-800 rounded-3xl p-5">
+                    <h2 class="text-xl font-bold accent-text mb-4">Resumo por pagamento</h2>
+                    ${Object.entries(byPayment).map(([method, value]) => `<div class="flex justify-between border-b border-gray-800 py-2"><span>${escapeHTML(method)}</span><strong>${money(value)}</strong></div>`).join('') || '<p class="text-gray-500">Sem dados.</p>'}
+                </section>
+                <section class="bg-premium-gray border border-gray-800 rounded-3xl p-5">
+                    <h2 class="text-xl font-bold accent-text mb-4">Exportações</h2>
+                    <div class="grid gap-3">
+                        <button id="btn-export-orders" class="w-full px-4 py-3 rounded-2xl accent-bg text-premium-dark font-bold">Exportar pedidos CSV</button>
+                        <button id="btn-export-products-2" class="w-full px-4 py-3 rounded-2xl bg-gray-700 font-bold">Exportar produtos CSV</button>
+                        <button id="btn-export-clients-2" class="w-full px-4 py-3 rounded-2xl bg-gray-700 font-bold">Exportar clientes CSV</button>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-4">Na versão SaaS, esses relatórios viram filtros por período, gráfico e exportação do banco.</p>
+                </section>
+            </div>
+        `;
+        $('btn-export-orders').addEventListener('click', exportOrdersCSV);
+        $('btn-export-products-2').addEventListener('click', exportProductsCSV);
+        $('btn-export-clients-2').addEventListener('click', exportClientsCSV);
+    }
+
+    function renderAdminSubscription() {
+        $('admin-assinatura').innerHTML = `
+            <div class="grid gap-5 lg:grid-cols-[1fr_420px]">
+                <section class="bg-premium-gray border border-gray-800 rounded-3xl p-5">
+                    <h2 class="text-2xl font-bold accent-text">Assinatura e cobrança</h2>
+                    <p class="text-sm text-gray-400 mt-1">Planejamento para integrar o SaaS com Asaas. Nesta demo, os dados ficam salvos localmente.</p>
+                    <div class="grid gap-3 md:grid-cols-3 mt-5">
+                        ${metricCard('Básico', 'R$ 49/mês')}
+                        ${metricCard('Pro', 'R$ 89/mês')}
+                        ${metricCard('Premium', 'R$ 149/mês')}
+                    </div>
+                    <div class="mt-5 bg-premium-dark/70 border border-gray-800 rounded-2xl p-4 text-sm text-gray-300">
+                        <p class="font-bold accent-text mb-2">Fluxo futuro com Asaas</p>
+                        <p>1. Restaurante escolhe plano → 2. Sistema cria cobrança no Asaas → 3. Webhook confirma pagamento → 4. Assinatura fica ativa → 5. Atraso limita o painel.</p>
+                    </div>
+                </section>
+                <section class="bg-premium-gray border border-gray-800 rounded-3xl p-5">
+                    <h2 class="text-xl font-bold accent-text mb-4">Configuração comercial</h2>
+                    <label class="text-sm text-gray-400">Plano atual</label>
+                    <select id="billing-plan" class="w-full mt-1 mb-3 px-4 py-3 rounded-2xl bg-premium-dark border border-gray-700">
+                        ${['basico', 'pro', 'premium'].map(plan => `<option value="${plan}" ${settings.billingPlan === plan ? 'selected' : ''}>${plan.toUpperCase()}</option>`).join('')}
+                    </select>
+                    <label class="text-sm text-gray-400">Status</label>
+                    <select id="billing-status" class="w-full mt-1 mb-3 px-4 py-3 rounded-2xl bg-premium-dark border border-gray-700">
+                        ${['teste', 'ativo', 'atrasado', 'bloqueado'].map(status => `<option value="${status}" ${(settings.billingStatus || 'teste') === status ? 'selected' : ''}>${status.toUpperCase()}</option>`).join('')}
+                    </select>
+                    <label class="text-sm text-gray-400">ID cliente Asaas futuro</label>
+                    <input id="billing-customer-id" value="${escapeHTML(settings.billingCustomerId || '')}" class="w-full mt-1 mb-3 px-4 py-3 rounded-2xl bg-premium-dark border border-gray-700" placeholder="cus_...">
+                    <button id="btn-save-billing" class="w-full accent-bg text-premium-dark py-3 rounded-2xl font-bold">Salvar cobrança</button>
+                </section>
+            </div>
+        `;
+        $('btn-save-billing').addEventListener('click', () => {
+            settings.billingPlan = $('billing-plan').value;
+            settings.billingStatus = $('billing-status').value;
+            settings.billingCustomerId = $('billing-customer-id').value.trim();
+            persistSettings();
+            showToast('Configuração de assinatura salva.');
+        });
+    }
+
+    function printOrder(orderId) {
+        const order = orders.find(item => item.id === orderId);
+        if (!order) return;
+        const html = makePrintHTML([order], `Pedido ${order.id}`);
+        openPrintWindow(html);
+    }
+
+    function printKitchenOrders() {
+        const list = orders.filter(order => ['novo', 'aceito', 'preparando'].includes(order.status));
+        if (!list.length) { showToast('Nenhum pedido aberto para imprimir.', 'error'); return; }
+        openPrintWindow(makePrintHTML(list, 'Pedidos abertos da cozinha'));
+    }
+
+    function makePrintHTML(list, title) {
+        return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHTML(title)}</title><style>body{font-family:Arial,sans-serif;color:#111}.order{border-bottom:1px dashed #999;padding:12px 0}.muted{color:#555;font-size:12px}h1,h2{margin:0 0 8px}ul{padding-left:18px}.total{font-size:18px;font-weight:700}</style></head><body><h1>${escapeHTML(settings.businessName)}</h1><p class="muted">${escapeHTML(title)}</p>${list.map(order => `<div class="order"><h2>${escapeHTML(order.id)} - ${statusLabel(order.status)}</h2><p class="muted">${escapeHTML(order.createdLabel || '')} • ${escapeHTML(order.customer?.name || '')} • ${escapeHTML(order.customer?.phone || '')}</p><p><strong>${order.fulfillment?.type === 'mesa' ? 'Mesa ' + escapeHTML(order.fulfillment.table || '-') : order.fulfillment?.type === 'retirada' ? 'Retirada' : 'Entrega'}</strong></p><ul>${(order.items || []).map(item => `<li><strong>${item.quantity}x ${escapeHTML(item.name)}</strong>${item.extras?.length ? ` - ${item.extras.map(e => escapeHTML(e.name)).join(', ')}` : ''}${item.note ? `<br><em>Obs: ${escapeHTML(item.note)}</em>` : ''}</li>`).join('')}</ul>${order.notes ? `<p><strong>Obs. geral:</strong> ${escapeHTML(order.notes)}</p>` : ''}<p class="total">Total: ${money(order.totals?.total || 0)}</p></div>`).join('')}<script>window.onload=()=>{window.print();setTimeout(()=>window.close(),500)}<\/script></body></html>`;
+    }
+
+    function openPrintWindow(html) {
+        const win = window.open('', '_blank', 'width=420,height=640');
+        if (!win) { showToast('O navegador bloqueou a janela de impressão.', 'error'); return; }
+        win.document.open();
+        win.document.write(html);
+        win.document.close();
+    }
+
+    function downloadCSV(filename, rows) {
+        const csv = rows.map(row => row.map(value => `"${String(value ?? '').replace(/"/g, '""')}"`).join(';')).join('\n');
+        const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    function exportOrdersCSV() {
+        downloadCSV('delicia-pedidos.csv', [['ID','Data','Status','Cliente','Telefone','Tipo','Total','Pagamento'], ...orders.map(o => [o.id, o.createdLabel, statusLabel(o.status), o.customer?.name, o.customer?.phone, o.fulfillment?.type, o.totals?.total, o.payment?.method])]);
+    }
+
+    function exportProductsCSV() {
+        downloadCSV('delicia-produtos.csv', [['ID','Produto','Categoria','Preço','Estoque','Estoque mínimo','Ativo'], ...products.map(p => [p.id, p.name, p.category, p.price, p.stock, p.stockMin || 5, p.active !== false ? 'sim' : 'não'])]);
+    }
+
+    function exportClientsCSV() {
+        downloadCSV('delicia-clientes.csv', [['Nome','Telefone','Pedidos','Total comprado','Último pedido'], ...getCustomers().map(c => [c.name, c.phone, c.orders, c.total, c.lastOrder?.id])]);
     }
 
     function renderAdminProducts() {
@@ -1408,6 +1844,7 @@
                         <input id="admin-product-image" type="url" placeholder="URL da imagem" class="w-full px-4 py-3 rounded-2xl bg-premium-dark border border-gray-700">
                         <input id="admin-product-tags" type="text" placeholder="Tags separadas por vírgula" class="w-full px-4 py-3 rounded-2xl bg-premium-dark border border-gray-700">
                         <input id="admin-product-stock" type="number" min="0" placeholder="Estoque" class="w-full px-4 py-3 rounded-2xl bg-premium-dark border border-gray-700">
+                        <input id="admin-product-stock-min" type="number" min="0" placeholder="Estoque mínimo para alerta" class="w-full px-4 py-3 rounded-2xl bg-premium-dark border border-gray-700">
                         <textarea id="admin-product-desc" rows="3" placeholder="Descrição" class="w-full px-4 py-3 rounded-2xl bg-premium-dark border border-gray-700"></textarea>
                         <div class="grid grid-cols-2 gap-2">
                             <button class="accent-bg text-premium-dark py-3 rounded-2xl font-bold">Salvar</button>
@@ -1470,6 +1907,7 @@
             image: $('admin-product-image').value.trim() || FALLBACK_IMAGE,
             tags: $('admin-product-tags').value.split(',').map(t => t.trim()).filter(Boolean),
             stock: Number($('admin-product-stock').value) || 0,
+            stockMin: Number($('admin-product-stock-min').value) || 5,
             description: $('admin-product-desc').value.trim(),
             serve: 'unidade',
             unit: 'unidade',
@@ -1488,7 +1926,7 @@
     }
 
     function clearProductForm() {
-        ['admin-product-id', 'admin-product-name', 'admin-product-category', 'admin-product-price', 'admin-product-old-price', 'admin-product-image', 'admin-product-tags', 'admin-product-stock', 'admin-product-desc'].forEach(id => $(id).value = '');
+        ['admin-product-id', 'admin-product-name', 'admin-product-category', 'admin-product-price', 'admin-product-old-price', 'admin-product-image', 'admin-product-tags', 'admin-product-stock', 'admin-product-stock-min', 'admin-product-desc'].forEach(id => $(id).value = '');
     }
 
     function editProduct(id) {
@@ -1502,6 +1940,7 @@
         $('admin-product-image').value = product.image || '';
         $('admin-product-tags').value = (product.tags || []).join(', ');
         $('admin-product-stock').value = product.stock || '';
+        $('admin-product-stock-min').value = product.stockMin || 5;
         $('admin-product-desc').value = product.description || '';
         $('admin-product-name').focus();
     }
@@ -1549,7 +1988,7 @@
                     <input id="set-min-order" type="number" step="0.01" min="0" value="${Number(settings.minOrder || 0)}" class="w-full px-4 py-3 rounded-2xl bg-premium-dark border border-gray-700" placeholder="Pedido mínimo">
                     <input id="set-delivery-time" value="${escapeHTML(settings.deliveryTime)}" class="w-full px-4 py-3 rounded-2xl bg-premium-dark border border-gray-700" placeholder="Tempo de entrega">
                     <input id="set-pickup-time" value="${escapeHTML(settings.pickupTime)}" class="w-full px-4 py-3 rounded-2xl bg-premium-dark border border-gray-700" placeholder="Tempo de retirada">
-                    <label class="flex items-center gap-2 text-sm"><input id="set-open-manual" type="checkbox" ${settings.isOpenManual ? 'checked' : ''}> Estabelecimento ativo/aberto conforme horários</label>
+                    <div class="rounded-2xl border border-gray-700 bg-premium-dark p-4 text-sm text-gray-300">O controle de aberto/fechado agora fica na aba <strong>Horários</strong>, com dias da semana, dois turnos por dia e fechamento manual emergencial.</div>
                 </section>
                 <section class="bg-premium-gray border border-gray-800 rounded-3xl p-5 space-y-3 lg:col-span-2">
                     <h2 class="text-xl font-bold accent-text">Bairros e taxas</h2>
@@ -1580,7 +2019,7 @@
         settings.minOrder = Number($('set-min-order').value) || 0;
         settings.deliveryTime = $('set-delivery-time').value.trim() || DEFAULT_SETTINGS.deliveryTime;
         settings.pickupTime = $('set-pickup-time').value.trim() || DEFAULT_SETTINGS.pickupTime;
-        settings.isOpenManual = $('set-open-manual').checked;
+        settings.isOpenManual = settings.openMode !== 'closed';
         settings.neighborhoods = $('set-neighborhoods').value.split('\n').map(line => {
             const [name, fee] = line.split(';');
             return { name: (name || '').trim(), fee: Number(String(fee || '0').replace(',', '.')) || 0 };
@@ -1601,6 +2040,115 @@
             renderAdminShell();
             showToast('Demo restaurada.');
         });
+    }
+
+    function renderAdminHours() {
+        const hours = getNormalizedHours();
+        const mode = settings.openMode || (settings.isOpenManual === false ? 'closed' : 'schedule');
+        $('admin-horarios').innerHTML = `
+            <form id="hours-form" class="space-y-5">
+                <section class="bg-premium-gray border border-gray-800 rounded-3xl p-5">
+                    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-5">
+                        <div>
+                            <h2 class="text-2xl font-bold accent-text">Horários de funcionamento</h2>
+                            <p class="text-sm text-gray-400">Controle abertura, fechamento, pausa entre almoço/jantar e fechamento emergencial.</p>
+                        </div>
+                        <div class="grid gap-2 sm:grid-cols-3 text-sm">
+                            <label class="bg-premium-dark border border-gray-700 rounded-2xl p-3 cursor-pointer"><input type="radio" name="open-mode" value="schedule" ${mode === 'schedule' ? 'checked' : ''}> Automático</label>
+                            <label class="bg-premium-dark border border-gray-700 rounded-2xl p-3 cursor-pointer"><input type="radio" name="open-mode" value="open" ${mode === 'open' ? 'checked' : ''}> Forçar aberto</label>
+                            <label class="bg-premium-dark border border-gray-700 rounded-2xl p-3 cursor-pointer"><input type="radio" name="open-mode" value="closed" ${mode === 'closed' ? 'checked' : ''}> Forçar fechado</label>
+                        </div>
+                    </div>
+                    <div class="grid gap-3">
+                        ${DAY_LABELS.map((label, day) => {
+                            const config = hours[day];
+                            const first = config.intervals[0] || { open: '11:00', close: '15:00' };
+                            const second = config.intervals[1] || { open: '', close: '' };
+                            return `
+                                <div class="grid gap-3 lg:grid-cols-[140px_120px_1fr_1fr] lg:items-center bg-premium-dark/70 border border-gray-800 rounded-2xl p-4">
+                                    <strong>${label}</strong>
+                                    <label class="flex items-center gap-2 text-sm"><input type="checkbox" class="day-enabled" data-day="${day}" ${config.enabled ? 'checked' : ''}> Aberto</label>
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <label class="text-xs text-gray-400">Abertura 1<input type="time" class="day-open-1 mt-1 w-full px-3 py-2 rounded-xl bg-premium-gray border border-gray-700 text-white" data-day="${day}" value="${escapeHTML(first.open)}"></label>
+                                        <label class="text-xs text-gray-400">Fechamento 1<input type="time" class="day-close-1 mt-1 w-full px-3 py-2 rounded-xl bg-premium-gray border border-gray-700 text-white" data-day="${day}" value="${escapeHTML(first.close)}"></label>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <label class="text-xs text-gray-400">Abertura 2 opcional<input type="time" class="day-open-2 mt-1 w-full px-3 py-2 rounded-xl bg-premium-gray border border-gray-700 text-white" data-day="${day}" value="${escapeHTML(second.open)}"></label>
+                                        <label class="text-xs text-gray-400">Fechamento 2 opcional<input type="time" class="day-close-2 mt-1 w-full px-3 py-2 rounded-xl bg-premium-gray border border-gray-700 text-white" data-day="${day}" value="${escapeHTML(second.close)}"></label>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                    <div class="grid gap-3 md:grid-cols-3 mt-5">
+                        <button class="accent-bg text-premium-dark py-3 rounded-2xl font-bold">Salvar horários</button>
+                        <button type="button" id="btn-preset-delivery" class="border border-gray-700 py-3 rounded-2xl font-bold">Modelo delivery</button>
+                        <button type="button" id="btn-preset-bar" class="border border-gray-700 py-3 rounded-2xl font-bold">Modelo bar</button>
+                    </div>
+                </section>
+                <section class="bg-premium-gray border border-gray-800 rounded-3xl p-5 text-sm text-gray-300">
+                    <h3 class="font-bold accent-text mb-2">Como o cliente vê isso?</h3>
+                    <p>O status muda automaticamente no cardápio, o banner mostra o horário de hoje e o botão de finalizar pedido fica bloqueado quando estiver fechado.</p>
+                    <p class="mt-2">Status atual: <strong class="${isOpenNow() ? 'text-green-400' : 'text-red-400'}">${isOpenNow() ? 'Aberto' : 'Fechado'}</strong> • Hoje: <strong>${escapeHTML(getTodayHoursLabel())}</strong></p>
+                </section>
+            </form>
+        `;
+        $('hours-form').addEventListener('submit', saveHoursFromAdmin);
+        $('btn-preset-delivery').addEventListener('click', () => applyHoursPreset('delivery'));
+        $('btn-preset-bar').addEventListener('click', () => applyHoursPreset('bar'));
+    }
+
+    function saveHoursFromAdmin(event) {
+        event.preventDefault();
+        const nextHours = {};
+        DAY_LABELS.forEach((_, day) => {
+            const enabled = document.querySelector(`.day-enabled[data-day="${day}"]`)?.checked || false;
+            const firstOpen = document.querySelector(`.day-open-1[data-day="${day}"]`)?.value || '';
+            const firstClose = document.querySelector(`.day-close-1[data-day="${day}"]`)?.value || '';
+            const secondOpen = document.querySelector(`.day-open-2[data-day="${day}"]`)?.value || '';
+            const secondClose = document.querySelector(`.day-close-2[data-day="${day}"]`)?.value || '';
+            const intervals = [];
+            if (firstOpen && firstClose) intervals.push({ open: firstOpen, close: firstClose });
+            if (secondOpen && secondClose) intervals.push({ open: secondOpen, close: secondClose });
+            nextHours[day] = { enabled: enabled && intervals.length > 0, intervals };
+        });
+        settings.hours = nextHours;
+        settings.openMode = document.querySelector('input[name="open-mode"]:checked')?.value || 'schedule';
+        settings.isOpenManual = settings.openMode !== 'closed';
+        persistSettings();
+        renderPublic();
+        renderAdminHours();
+        showToast('Horários salvos.');
+    }
+
+    function applyHoursPreset(type) {
+        const presets = {
+            delivery: {
+                0: { enabled: false, intervals: [] },
+                1: { enabled: true, intervals: [{ open: '11:00', close: '22:00' }] },
+                2: { enabled: true, intervals: [{ open: '11:00', close: '22:00' }] },
+                3: { enabled: true, intervals: [{ open: '11:00', close: '22:00' }] },
+                4: { enabled: true, intervals: [{ open: '11:00', close: '22:00' }] },
+                5: { enabled: true, intervals: [{ open: '11:00', close: '23:00' }] },
+                6: { enabled: true, intervals: [{ open: '11:00', close: '23:00' }] }
+            },
+            bar: {
+                0: { enabled: true, intervals: [{ open: '18:00', close: '02:00' }] },
+                1: { enabled: false, intervals: [] },
+                2: { enabled: true, intervals: [{ open: '18:00', close: '00:00' }] },
+                3: { enabled: true, intervals: [{ open: '18:00', close: '00:00' }] },
+                4: { enabled: true, intervals: [{ open: '18:00', close: '00:00' }] },
+                5: { enabled: true, intervals: [{ open: '18:00', close: '02:00' }] },
+                6: { enabled: true, intervals: [{ open: '18:00', close: '02:00' }] }
+            }
+        };
+        settings.hours = presets[type];
+        settings.openMode = 'schedule';
+        settings.isOpenManual = true;
+        persistSettings();
+        renderPublic();
+        renderAdminHours();
+        showToast(type === 'bar' ? 'Modelo de bar aplicado.' : 'Modelo de delivery aplicado.');
     }
 
     function renderAdminAnalytics() {
