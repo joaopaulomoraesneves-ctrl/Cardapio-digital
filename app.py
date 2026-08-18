@@ -248,6 +248,7 @@ def download_stream(
         raise HTTPException(status_code=400, detail="Não foi possível obter o link de download direto.")
 
     clean_filename = sanitize_filename(title) + f".{file_ext}"
+    ascii_filename = clean_filename.encode('ascii', 'ignore').decode('ascii').strip() or f"video.{file_ext}"
     encoded_filename = urllib.parse.quote(clean_filename)
 
     headers = {
@@ -270,7 +271,7 @@ def download_stream(
                 req_stream.close()
 
         res_headers = {
-            "Content-Disposition": f"attachment; filename=\"{clean_filename}\"; filename*=UTF-8''{encoded_filename}"
+            "Content-Disposition": f"attachment; filename=\"{ascii_filename}\"; filename*=UTF-8''{encoded_filename}"
         }
         if content_length:
             res_headers["Content-Length"] = content_length
