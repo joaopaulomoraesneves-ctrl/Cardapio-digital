@@ -89,10 +89,14 @@ def extract_info(req: VideoInfoRequest):
                 if not download_url:
                     continue
 
+                protocol = f.get('protocol', '')
+                # Skip raw m3u8 playlists or DASH manifests as direct progressive streams unless they are standard http/https mp4
+                if 'm3u8' in protocol or 'dash' in protocol:
+                    continue
+
                 ext = f.get('ext') or 'mp4'
                 format_id = f.get('format_id', 'best')
                 height = f.get('height')
-                width = f.get('width')
                 vcodec = f.get('vcodec') or ''
                 acodec = f.get('acodec') or ''
                 filesize = f.get('filesize') or f.get('filesize_approx') or 0
@@ -100,6 +104,14 @@ def extract_info(req: VideoInfoRequest):
                 res_label = ""
                 if height:
                     res_label = f"{height}p"
+                elif format_id in ['full', '1080p', '1080']:
+                    res_label = "1080p"
+                elif format_id in ['hd', '720p', '720']:
+                    res_label = "720p"
+                elif format_id in ['sd', '480p', '480']:
+                    res_label = "480p"
+                elif format_id in ['low', 'lowest', '360p', '240p']:
+                    res_label = "360p/240p"
                 elif f.get('format_note'):
                     res_label = f.get('format_note')
                 elif vcodec == 'none' and acodec != 'none':
@@ -107,12 +119,6 @@ def extract_info(req: VideoInfoRequest):
                 else:
                     res_label = "Padrão"
 
-                is_audio_only = (vcodec == 'none' and acodec != 'none')
-                is_video_with_audio = (vcodec != 'none' and acodec != 'none')
-
-                combo_key = f"{res_label}_{ext}_{is_audio_only}"
-
-                # Prefer formats with audio+video or standalone clean audio
                 formats_list.append({
                     'format_id': format_id,
                     'ext': ext,
@@ -123,6 +129,21 @@ def extract_info(req: VideoInfoRequest):
                     'note': f.get('format_note', ''),
                     'download_url': download_url
                 })
+
+            # If no direct formats survived filtering, fallback to raw_formats
+            if not formats_list and raw_formats:
+                for f in raw_formats:
+                    if f.get('url'):
+                        formats_list.append({
+                            'format_id': f.get('format_id', 'best'),
+                            'ext': f.get('ext', 'mp4'),
+                            'resolution': 'Padrão',
+                            'filesize': f.get('filesize') or 0,
+                            'has_audio': True,
+                            'has_video': True,
+                            'note': '',
+                            'download_url': f.get('url')
+                        })
 
             # Sort formats: combined video+audio first (by height desc), then audio-only
             def sort_key(item):
@@ -230,7 +251,9 @@ def download_stream(
     encoded_filename = urllib.parse.quote(clean_filename)
 
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': '*/*',
+        'Sec-Fetch-Mode': 'navigate'
     }
 
     try:
