@@ -1,13 +1,13 @@
 import os
 import re
 import urllib.parse
-from typing import Optional
-from fastapi import FastAPI, HTTPException, Query, Request, Response
+from typing import Optional, Generator
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import httpx
+import requests
 import yt_dlp
 
 app = FastAPI(title="Video Downloader API", version="1.0.0")
@@ -194,7 +194,7 @@ def extract_info(req: VideoInfoRequest):
 
 
 @app.get("/api/download")
-async def download_stream(
+def download_stream(
     request: Request,
     url: str = Query(...),
     format_id: Optional[str] = Query("best"),
@@ -255,16 +255,12 @@ async def download_stream(
         'Accept': '*/*',
     }
 
-    # Pass Range header if requested by client browser download manager
     range_header = request.headers.get("range")
     if range_header:
         headers["Range"] = range_header
 
-    client = httpx.AsyncClient(follow_redirects=True, timeout=httpx.Timeout(30.0, read=None))
-
     try:
-        req = client.build_request("GET", download_target_url, headers=headers)
-        res = await client.send(req, stream=True)
+        req_stream = requests.get(download_target_url, headers=headers, stream=True, timeout=30)
 
         res_headers = {
             "Content-Disposition": f"attachment; filename=\"{ascii_filename}\"; filename*=UTF-8''{encoded_filename}",
@@ -272,30 +268,28 @@ async def download_stream(
         }
 
         for header_name in ["Content-Length", "Content-Type", "Content-Range"]:
-            if header_name in res.headers:
-                res_headers[header_name] = res.headers[header_name]
+            if header_name in req_stream.headers:
+                res_headers[header_name] = req_stream.headers[header_name]
 
-        # Use 2MB chunks for fast high-throughput streaming
+        # Stream in 2MB chunks using requests
         CHUNK_SIZE = 2 * 1024 * 1024
 
-        async def stream_generator():
+        def iterfile() -> Generator[bytes, None, None]:
             try:
-                async for chunk in res.aiter_bytes(chunk_size=CHUNK_SIZE):
+                for chunk in req_stream.iter_content(chunk_size=CHUNK_SIZE):
                     if chunk:
                         yield chunk
             finally:
-                await res.aclose()
-                await client.aclose()
+                req_stream.close()
 
         return StreamingResponse(
-            stream_generator(),
-            status_code=res.status_code,
+            iterfile(),
+            status_code=req_stream.status_code,
             headers=res_headers,
-            media_type=res.headers.get("Content-Type", "application/octet-stream")
+            media_type=req_stream.headers.get('Content-Type', 'application/octet-stream')
         )
 
     except Exception as e:
-        await client.aclose()
         raise HTTPException(status_code=500, detail=f"Erro ao transmitir vídeo: {str(e)}")
 
 
