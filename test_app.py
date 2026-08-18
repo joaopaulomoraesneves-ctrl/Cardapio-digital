@@ -30,3 +30,9 @@ def test_info_youtube():
 def test_download_endpoint_validation():
     response = client.get("/api/download?url=")
     assert response.status_code == 400
+
+def test_download_redirect_mode():
+    url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    response = client.get(f"/api/download?url={url}&mode=redirect", follow_redirects=False)
+    assert response.status_code in [302, 307]
+    assert "location" in response.headers
