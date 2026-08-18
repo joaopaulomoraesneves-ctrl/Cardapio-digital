@@ -7,9 +7,19 @@ from fastapi.responses import StreamingResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import httpx
-import requests
 import yt_dlp
+
+try:
+    import httpx
+    HTTPX_AVAILABLE = True
+except ImportError:
+    HTTPX_AVAILABLE = False
+
+try:
+    import requests
+    REQUESTS_AVAILABLE = True
+except ImportError:
+    REQUESTS_AVAILABLE = False
 
 app = FastAPI(title="Video Downloader API", version="1.0.0")
 
@@ -265,38 +275,66 @@ async def download_stream(
     if range_header:
         headers["Range"] = range_header
 
+    res_headers = {
+        "Content-Disposition": f"attachment; filename=\"{ascii_filename}\"; filename*=UTF-8''{encoded_filename}",
+        "Accept-Ranges": "bytes"
+    }
+    CHUNK_SIZE = 4 * 1024 * 1024
+
+    if HTTPX_AVAILABLE:
+        try:
+            client = httpx.AsyncClient(follow_redirects=True, timeout=httpx.Timeout(60.0, connect=10.0))
+            req = client.build_request("GET", download_target_url, headers=headers)
+            response = await client.send(req, stream=True)
+
+            for header_name in ["Content-Length", "Content-Type", "Content-Range"]:
+                if header_name in response.headers:
+                    res_headers[header_name] = response.headers[header_name]
+
+            async def iterfile_httpx() -> AsyncGenerator[bytes, None]:
+                try:
+                    async for chunk in response.aiter_bytes(chunk_size=CHUNK_SIZE):
+                        yield chunk
+                finally:
+                    await response.aclose()
+                    await client.aclose()
+
+            return StreamingResponse(
+                iterfile_httpx(),
+                status_code=response.status_code,
+                headers=res_headers,
+                media_type=response.headers.get('Content-Type', 'application/octet-stream')
+            )
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Erro ao transmitir vídeo com httpx: {str(e)}")
+
+    # Standard library fallback using urllib.request
     try:
-        client = httpx.AsyncClient(follow_redirects=True, timeout=httpx.Timeout(60.0, connect=10.0))
-        req = client.build_request("GET", download_target_url, headers=headers)
-        response = await client.send(req, stream=True)
+        import urllib.request
+        req = urllib.request.Request(download_target_url, headers=headers)
+        res = urllib.request.urlopen(req, timeout=60)
 
-        res_headers = {
-            "Content-Disposition": f"attachment; filename=\"{ascii_filename}\"; filename*=UTF-8''{encoded_filename}",
-            "Accept-Ranges": "bytes"
-        }
+        for h in ["Content-Length", "Content-Type", "Content-Range"]:
+            val = res.headers.get(h)
+            if val:
+                res_headers[h] = val
 
-        for header_name in ["Content-Length", "Content-Type", "Content-Range"]:
-            if header_name in response.headers:
-                res_headers[header_name] = response.headers[header_name]
-
-        # Async 4MB chunk streaming for high throughput
-        CHUNK_SIZE = 4 * 1024 * 1024
-
-        async def iterfile() -> AsyncGenerator[bytes, None]:
+        def iterfile_urllib():
             try:
-                async for chunk in response.aiter_bytes(chunk_size=CHUNK_SIZE):
+                while True:
+                    chunk = res.read(CHUNK_SIZE)
+                    if not chunk:
+                        break
                     yield chunk
             finally:
-                await response.aclose()
-                await client.aclose()
+                res.close()
 
         return StreamingResponse(
-            iterfile(),
-            status_code=response.status_code,
+            iterfile_urllib(),
+            status_code=res.status or 200,
             headers=res_headers,
-            media_type=response.headers.get('Content-Type', 'application/octet-stream')
+            media_type=res.headers.get('Content-Type', 'application/octet-stream')
         )
-
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao transmitir vídeo: {str(e)}")
 
