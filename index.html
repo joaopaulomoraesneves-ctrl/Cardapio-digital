@@ -43,13 +43,6 @@
         .glow-effect {
             box-shadow: 0 0 50px -10px rgba(99, 102, 241, 0.25);
         }
-        .pulse-subtle {
-            animation: pulseSubtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-        }
-        @keyframes pulseSubtle {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.7; }
-        }
     </style>
 </head>
 <body class="min-h-screen flex flex-col font-sans selection:bg-brand-500 selection:text-white">
@@ -70,7 +63,7 @@
             <div class="flex items-center gap-2">
                 <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                     <span class="w-2 h-2 rounded-full bg-emerald-400 mr-2 animate-ping"></span>
-                    Sem Limite de Tamanho
+                    Alta Velocidade & Sem Limite
                 </span>
             </div>
         </div>
@@ -194,13 +187,27 @@
                                     <span>Baixar Agora</span>
                                 </button>
 
+                                <a
+                                    id="btn-cdn-direct"
+                                    href="#"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    class="w-full sm:w-auto px-4 py-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-sm transition-all flex items-center justify-center gap-2"
+                                    title="Abrir/Baixar direto do servidor de origem (Velocidade máxima)"
+                                >
+                                    <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                                    </svg>
+                                    <span>Link CDN Direto</span>
+                                </a>
+
                                 <button
                                     id="btn-copy-link"
                                     class="w-full sm:w-auto px-4 py-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-sm transition-all flex items-center justify-center gap-2"
-                                    title="Copiar link direto de download"
+                                    title="Copiar link do servidor para gerenciadores de download"
                                 >
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 012-2h2a2 2 0 012-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/>
                                     </svg>
                                     <span>Copiar Link</span>
                                 </button>
@@ -218,7 +225,7 @@
                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    <span>Iniciando e transmitindo o download... Seu download começará automaticamente.</span>
+                    <span>Transmitindo o vídeo em alta velocidade... Seu download começará automaticamente.</span>
                 </div>
             </div>
         </div>
@@ -313,6 +320,7 @@
             const resDurationBadge = document.getElementById('res-duration-badge');
             const resFormatSelect = document.getElementById('res-format-select');
             const btnDownload = document.getElementById('btn-download');
+            const btnCdnDirect = document.getElementById('btn-cdn-direct');
             const btnCopyLink = document.getElementById('btn-copy-link');
             const downloadProgressBox = document.getElementById('download-progress-box');
 
@@ -383,7 +391,7 @@
                     try {
                         data = await response.json();
                     } catch (jsonErr) {
-                        throw new Error('O servidor backend Python não está rodando nesta hospedagem. O GitHub Pages suporta apenas sites estáticos (HTML/CSS). Para rodar o downloader, inicie o backend Python localmente ou hospede em um serviço como Render.com.');
+                        throw new Error('Erro ao processar resposta do servidor.');
                     }
 
                     if (!response.ok) {
@@ -401,6 +409,19 @@
                     btnAnalyze.disabled = false;
                 }
             });
+
+            function updateCdnDirectLink() {
+                if (!currentVideoData) return;
+                const selectedFormatId = resFormatSelect.value;
+                const formatObj = (currentVideoData.formats || []).find(f => f.format_id === selectedFormatId);
+                if (formatObj && formatObj.download_url) {
+                    btnCdnDirect.href = formatObj.download_url;
+                    btnCdnDirect.classList.remove('opacity-50', 'pointer-events-none');
+                } else {
+                    btnCdnDirect.href = '#';
+                    btnCdnDirect.classList.add('opacity-50', 'pointer-events-none');
+                }
+            }
 
             function renderResult(data) {
                 resTitle.textContent = data.title;
@@ -439,9 +460,13 @@
                     resFormatSelect.appendChild(opt);
                 }
 
+                updateCdnDirectLink();
+
                 resultBox.classList.remove('hidden');
                 resultBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             }
+
+            resFormatSelect.addEventListener('change', updateCdnDirectLink);
 
             // Download Trigger
             btnDownload.addEventListener('click', () => {
@@ -460,7 +485,7 @@
                 link.click();
                 document.body.removeChild(link);
 
-                showToast('Download iniciado! O arquivo será salvo em breve.', '🚀');
+                showToast('Download iniciado via servidor otimizado!', '🚀');
 
                 setTimeout(() => {
                     downloadProgressBox.classList.add('hidden');
@@ -476,7 +501,7 @@
 
                 try {
                     await navigator.clipboard.writeText(downloadUrl);
-                    showToast('Link direto de download copiado!', '🔗');
+                    showToast('Link do servidor copiado!', '🔗');
                 } catch (err) {
                     showToast('Não foi possível copiar o link.', '❌');
                 }
