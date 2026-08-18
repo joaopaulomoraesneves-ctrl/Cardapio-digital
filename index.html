@@ -379,7 +379,12 @@
                         body: JSON.stringify({ url: url })
                     });
 
-                    const data = await response.json();
+                    let data;
+                    try {
+                        data = await response.json();
+                    } catch (jsonErr) {
+                        throw new Error('O servidor backend Python não está rodando nesta hospedagem. O GitHub Pages suporta apenas sites estáticos (HTML/CSS). Para rodar o downloader, inicie o backend Python localmente ou hospede em um serviço como Render.com.');
+                    }
 
                     if (!response.ok) {
                         throw new Error(data.detail || 'Não foi possível extrair o vídeo');
